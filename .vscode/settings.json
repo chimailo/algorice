@@ -1,0 +1,15 @@
+{
+  "python.pythonPath": "/usr/bin/python3",
+  "python.linting.pylintEnabled": false,
+  "python.linting.flake8Enabled": true,
+  "python.linting.enabled": true,
+  "python.linting.ignorePatterns": [
+    ".vscode/*.py",
+    "**/site-packages/**/*.py",
+    "venv"
+  ],
+  "editor.formatOnSave": true,
+  "editor.wordWrap": "on",
+  "python.formatting.provider": "black",
+  "python.formatting.blackArgs": ["line-length=80"]
+}

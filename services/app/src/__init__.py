@@ -39,32 +39,36 @@ def create_app(config=app_settings):
     # Register Blueprint
     from src.blueprints.errors import errors
     app.register_blueprint(errors)
-
     from src.blueprints.admin.routes import admin
     app.register_blueprint(admin)
-
     from src.blueprints.auth.routes import auth
     app.register_blueprint(auth)
-
     from src.blueprints.profiles.routes import profile
     app.register_blueprint(profile)
+    from src.blueprints.posts.routes import posts
+    app.register_blueprint(posts)
+    from src.blueprints.users.routes import users
+    app.register_blueprint(users)
 
-    # from src.blueprints.exercises.routes import exercises
-    # app.register_blueprint(exercises)
-
-    # from src.blueprints.submissions.routes import submissions
-    # app.register_blueprint(submissions)
+    from src.blueprints.auth.models import User
+    from src.blueprints.profiles.models import Profile
+    from src.blueprints.admin.models import Group
+    from src.blueprints.admin.models import Permission
+    from src.blueprints.admin.models import Model
+    from src.blueprints.posts.models import Post, Comment
 
     @app.shell_context_processor
     def ctx():
         """shell context for flask cli """
-        return {"app": app, "db": db}
+        return {
+            "app": app,
+            "db": db,
+            "User": User,
+            "Profile": Profile,
+            "Group": Group,
+            "Permission": Permission,
+            "Model": Model,
+            "Post": Post,
+        }
 
     return app
-
-
-from src.blueprints.auth.models import User
-from src.blueprints.profiles.models import Profile
-from src.blueprints.admin.models import Group
-# from src.blueprints.exercises.models import Exercise
-# from src.blueprints.submissions.models import Submission

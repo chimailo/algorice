@@ -1,20 +1,25 @@
 import json
 
 
-def test_get_profile(client, token):
+def test_get_profile(client, users, token):
     response = client.get(
-        '/api/profile',
+        '/api/profile/adminuser',
         headers={'Authorization': f'Bearer {token}'}
     )
-    # data = json.loads(response.data.decode())
+    data = json.loads(response.data.decode())
+    print(data)
     assert response.status_code == 200
-    # assert data.get('avatar') is not None
+    assert data.get('username') == 'adminuser'
+    assert data.get('profile')['name'] == 'admin'
 
 
 def test_update_profile_valid(client, token):
     response = client.put(
         '/api/profile',
-        data=json.dumps({'bio': 'I am the admin here.'}),
+        data=json.dumps({
+            # 'dob': datetime.utcnow,
+            'name': 'user',
+            'bio': 'I am the admin here.'}),
         content_type='application/json',
         headers={'Authorization': f'Bearer {token}'}
     )

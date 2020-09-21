@@ -1,5 +1,3 @@
-from hashlib import md5
-from random import random
 from datetime import datetime, timedelta
 import jwt
 
@@ -8,6 +6,44 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from src import db
 from src.utils.models import ResourceMixin
+from src.blueprints.admin.models import Permission
+
+
+user_perms = db.Table(
+    'user_permissions',
+    db.Column(
+        'user_id',
+        db.Integer,
+        db.ForeignKey('users.id', ondelete='CASCADE', onupdate='CASCADE'),
+        primary_key=True
+    ),
+    db.Column(
+        'perm_id',
+        db.Integer,
+        db.ForeignKey(
+            'permissions.id',
+            ondelete='CASCADE',
+            onupdate='CASCADE'
+        ),
+        primary_key=True
+    )
+)
+
+
+followers = db.Table(
+    'followers',
+    db.Column(
+        'follower_id',
+        db.Integer,
+        db.ForeignKey('users.id', ondelete='CASCADE', onupdate='CASCADE'),
+        primary_key=True
+    ),
+    db.Column(
+        'followed_id',
+        db.Integer,
+        db.ForeignKey('users.id', ondelete='CASCADE', onupdate='CASCADE'),
+        primary_key=True)
+)
 
 
 class User(db.Model, ResourceMixin):
@@ -15,8 +51,6 @@ class User(db.Model, ResourceMixin):
 
     # Identification
     id = db.Column(db.Integer, primary_key=True)
-    firstname = db.Column(db.String(32), index=True, nullable=False)
-    lastname = db.Column(db.String(32), index=True, nullable=False)
     username = db.Column(
         db.String(128),
         index=True,
@@ -30,7 +64,6 @@ class User(db.Model, ResourceMixin):
         nullable=False
     )
     password = db.Column(db.String(128), nullable=False)
-    avatar = db.Column(db.String(128))
 
     # Authorization
     is_active = db.Column(db.Boolean(), default=True, nullable=False)
@@ -44,25 +77,30 @@ class User(db.Model, ResourceMixin):
     last_sign_in_ip = db.Column(db.String(32))
 
     # Relationships
-    profile = db.relationship(
-        'Profile',
-        uselist=False,
-        backref='user',
-        lazy=True,
-        cascade='all, delete-orphan'
+    permissions = db.relationship(
+        'Permission',
+        secondary=user_perms,
+        backref=db.backref('users', lazy='dynamic'),
+        lazy='dynamic'
     )
-    # exercises = db.relationship(
-    #     'Exercise',
-    #     backref=db.backref('author'),
-    #     lazy=True,
-    # )
+    profile = db.relationship(
+        'Profile', uselist=False, backref='user',
+        lazy='joined', cascade='all, delete-orphan')
+    followed = db.relationship(
+        'User', secondary='followers', lazy='dynamic',
+        primaryjoin=(followers.c.follower_id == id),
+        secondaryjoin=(followers.c.followed_id == id),
+        backref=db.backref('followers', lazy='dynamic')
+    )
+    posts = db.relationship('Post', backref='author')
+    comments = db.relationship('Comment', backref='author')
 
     def __init__(self, **kwargs):
         super(User, self).__init__(**kwargs)
         self.password = User.hash_password(kwargs.get('password', ''))
 
     def __str__(self):
-        return f'<User {self.id} {self.email}>'
+        return f'<User {self.username}>'
 
     @classmethod
     def find_by_identity(cls, identity):
@@ -98,24 +136,6 @@ class User(db.Model, ResourceMixin):
         :return: boolean
         """
         return check_password_hash(self.password, password)
-
-    def set_username(self):
-        username = f'{self.firstname.lower()}{self.lastname.lower()}'
-        check = User.query.filter(User.username == username).first()
-
-        if check:
-            digits = str(random() * 1e5).split('.')[0]
-            username = f'{username}_{digits}'
-
-        return username
-
-    def get_fullname(self):
-        return f'{self.firstname.capitalize()} {self.lastname.capitalize()}'
-
-    @staticmethod
-    def set_avatar(email, size=128):
-        digest = md5(email.lower().encode('utf-8')).hexdigest()
-        return f'https://www.gravatar.com/avatar/{digest}?s={size}&d=mm&r=pg'
 
     def encode_auth_token(self, id):
         """Generates the auth token"""
@@ -160,11 +180,10 @@ class User(db.Model, ResourceMixin):
 
     def update_activity_tracking(self, ip_address):
         """
-        Update various fields on the user that's related to meta data on
-        their account, such as the sign in count and ip address, etc..
+        Update various fields on the user that's
+        related to meta data on their account.
 
-        :param ip_address: IP address
-        :type ip_address: str
+        :param ip_address: str
         :return: SQLAlchemy commit results
         """
         self.sign_in_count += 1
@@ -176,3 +195,61 @@ class User(db.Model, ResourceMixin):
         self.current_sign_in_ip = ip_address
 
         return self.save()
+
+    def follow(self, user):
+        if not self.is_following(user):
+            self.followed.append(user)
+
+    def unfollow(self, user):
+        if self.is_following(user):
+            self.followed.remove(user)
+
+    def is_following(self, user):
+        return self.followed.filter(
+            followers.c.followed_id == user.id).count() > 0
+
+    def user_has_perm(self, perm):
+        return self.permissions.filter(
+            user_perms.c.perm_id == perm.id).count() > 0
+
+    def add_permissions(self, perms):
+        for perm in perms:
+            if not self.user_has_perm(perm):
+                self.permissions.append(perm)
+                self.save()
+
+    def remove_permissions(self, perms):
+        for perm in perms:
+            if self.user_has_perm(perm):
+                self.permissions.remove(perm)
+                self.save()
+
+    def get_perms(self):
+        perms = []
+
+        for perm in self.permissions:
+            perms.append(perm)
+
+        return perms
+
+    def get_all_perms(self):
+        perms = []
+
+        for group in self.groups:
+            for perm in group.permissions:
+                perms.append(perm)
+
+        return list(set(perms).union(set(self.get_perms())))
+
+    def has_permission(self, name):
+        perm = Permission.find_by_name(name)
+        return perm in self.get_all_perms()
+
+    def has_permissions(self, perms_list):
+        perms = []
+
+        for perm in perms_list:
+            p = Permission.find_by_name(perm)
+            perms.append(p)
+
+        return set(perms).issubset(set(self.get_all_perms()))

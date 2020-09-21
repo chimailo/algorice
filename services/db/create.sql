@@ -1,3 +1,3 @@
-CREATE DATABASE algorice;
-CREATE DATABASE algorice_dev;
-CREATE DATABASE algorice_test;
+CREATE DATABASE witti;
+CREATE DATABASE witti_dev;
+CREATE DATABASE witti_test;

@@ -6,7 +6,7 @@ load_dotenv()
 
 class BaseConfig:
     """Base configuration"""
-    ITEMS_PER_PAGE = 30
+    ITEMS_PER_PAGE = 7
     SECRET_KEY = os.environ.get('SECRET_DEV_KEY')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     TESTING = False

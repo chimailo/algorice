@@ -7,7 +7,8 @@ from src.utils.decorators import authenticate
 from src.blueprints.errors import error_response, bad_request, server_error
 from src.blueprints.auth.models import User
 from src.blueprints.profiles.models import Profile
-from src.blueprints.auth.schema import UserSchema
+from src.blueprints.auth.schema import AuthSchema
+from src.blueprints.users.schema import UserSchema
 
 
 auth = Blueprint('auth', __name__, url_prefix='/api/auth')
@@ -39,37 +40,37 @@ def check_email():
 
 @auth.route('/register', methods=['POST'])
 def register_user():
-    request_data = request.get_json()
+    post_data = request.get_json()
 
-    if not request_data:
+    if not post_data:
         return bad_request("No input data provided")
 
     try:
-        data = UserSchema(partial=True).load(request_data)
+        data = AuthSchema(partial=True).load(post_data)
 
         email = data.get('email')
         password = data.get('password')
-        firstname = data.get('firstname').title()
-        lastname = data.get('lastname').title()
+        username = data.get('username')
+        name = data.get('name')
 
         # check for existing user
-        user = User.query.filter(User.email == email).first()
+        user = User.query.filter((User.email == email) | (
+            User.username == username)).first()
 
         if user:
             return bad_request('That user already exists.')
 
-        user = User()
+        profile = Profile()
+        profile.name = name
+        profile.avatar = profile.set_avatar(email)
+
+        user = User(password=password)
         user.email = email
-        user.firstname = firstname.capitalize()
-        user.lastname = lastname.capitalize()
-        user.password = password
-        user.username = user.set_username()
-        user.avatar = user.set_avatar(email)
+        user.username = username
+        user.profile = profile
         user.save()
 
-        response = jsonify({
-            'token': user.encode_auth_token(user.id).decode(),
-        })
+        response = jsonify({'token': user.encode_auth_token(user.id).decode()})
         response.status_code = 201
         response.headers['Location'] = url_for(
             'auth.get_user', id=user.id
@@ -86,28 +87,24 @@ def register_user():
 
 @auth.route('/login', methods=['POST'])
 def login_user():
-    request_data = request.get_json()
+    post_data = request.get_json()
 
-    if request_data is None:
+    if post_data is None:
         return bad_request("No input data provided")
 
     try:
-        data = UserSchema(partial=True).load(request_data)
-
         # check for existing user
-        user = User.find_by_identity(data.get('email'))
+        print(post_data.get('identity'))
+        user = User.find_by_identity(post_data.get('identity'))
 
-        if user and user.check_password(data.get('password')):
+        if user and user.check_password(post_data.get('password')):
             user.update_activity_tracking(request.remote_addr)
 
-            return jsonify({
-                'token': user.encode_auth_token(user.id).decode(),
-            })
+            return jsonify({'token': user.encode_auth_token(user.id).decode()})
         else:
-            return error_response(401, 'Incorrect email or password.')
-
+            return error_response(401, 'Invalid credentials.')
     except Exception:
-        return bad_request('Invalid payload, please try again.')
+        return server_error('Something went wrong, please try again.')
 
 
 @auth.route('/logout', methods=['GET'])
@@ -119,15 +116,29 @@ def logout_user(user):
 @auth.route('/user', methods=['GET'])
 @authenticate
 def get_user(user):
-    return jsonify(UserSchema(
-                only=(
-                    'id', 'email', 'username', 'firstname', 'avatar',
-                    'lastname', 'is_active', 'is_admin'
-                )
-            ).dump(user))
+    return jsonify(
+        UserSchema(only=('id', 'email', 'username', 'is_active', \
+            'is_admin', 'profile.name', 'profile.avatar',)).dump(user))
+
+
+@auth.route('/change-email', methods=['PUT'])
+@authenticate
+def change_email(user):
+    pass
+
+
+@auth.route('/change-username', methods=['PUT'])
+@authenticate
+def change_username(user):
+    pass
+
+
+@auth.route('/change-password', methods=['PUT'])
+@authenticate
+def change_password(user):
+    pass
 
 
 @auth.route('/reset-password', methods=['GET'])
-@authenticate
 def reset_password():
     pass

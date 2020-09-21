@@ -60,7 +60,8 @@ def test_register_user_invalid_data(client):
     response = client.post(
         '/api/auth/register',
         data=json.dumps({
-            'firstname': 'test',
+            'name': 'test',
+            'username': 'test',
             'email': 'invalidtest.com',
             'password': 'pass'
         }),
@@ -76,9 +77,9 @@ def test_register_user_valid(client, db):
     response = client.post(
         '/api/auth/register',
         data=json.dumps({
-            'firstname': 'common',
-            'lastname': 'user',
-            'email': 'commonuser@test.host',
+            'username': 'common',
+            'name': 'user',
+            'email': 'usercommon@test.host',
             'password': 'password',
         }),
         content_type='application/json'
@@ -96,7 +97,7 @@ def test_valid_user_login(client, users):
     response = client.post(
         '/api/auth/login',
         data=json.dumps({
-            'email': 'regularuser@test.com',
+            'identity': 'regularuser@test.com',
             'password': 'password'
         }),
         content_type='application/json'
@@ -120,7 +121,7 @@ def test_login_user_incorrect_password(client, users):
     )
     data = json.loads(response.data.decode())
     assert response.status_code == 401
-    assert 'Incorrect email or password' in data.get('message')
+    assert 'Invalid credentials' in data.get('message')
     assert data.get('token') is None
 
 
@@ -134,8 +135,8 @@ def test_invalid_user_login(client, users):
         content_type='application/json'
     )
     data = json.loads(response.data.decode())
-    assert response.status_code == 400
-    assert 'Invalid payload' in data.get('message')
+    assert response.status_code == 401
+    assert 'Invalid credentials' in data.get('message')
     assert data.get('token') is None
 
 
@@ -158,3 +159,4 @@ def test_get_user(client, token):
     assert response.status_code == 200
     assert isinstance(data, dict) is True
     assert data.get('username') == 'adminuser'
+    assert data.get('profile')['name'] == 'admin'

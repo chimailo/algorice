@@ -1,0 +1,147 @@
+import React, { Fragment, useState } from "react";
+import { Link as RouterLink, useLocation } from "react-router-dom";
+import moment from "moment";
+
+import Avatar from "@material-ui/core/Avatar";
+import IconButton from "@material-ui/core/IconButton";
+import Link from "@material-ui/core/Link";
+import Paper from "@material-ui/core/Paper";
+import Typography from "@material-ui/core/Typography";
+import ExpandMoreIcon from "@material-ui/icons/ExpandMore";
+import FavoriteIcon from "@material-ui/icons/Favorite";
+import LoopIcon from "@material-ui/icons/Loop";
+import ShareIcon from "@material-ui/icons/Share";
+import ModeCommentOutlinedIcon from "@material-ui/icons/ModeCommentOutlined";
+import { makeStyles, Theme, createStyles, Box } from "@material-ui/core";
+import CardMenu from "../../components/Menu/CardMenu";
+import { Post } from "../../types";
+
+const useStyles = makeStyles((theme: Theme) =>
+  createStyles({
+    paper: {
+      marginTop: 4,
+      padding: theme.spacing(1),
+    },
+    box: {
+      display: "flex",
+      position: "relative",
+    },
+    avatar: {
+      flexGrow: 0,
+      width: theme.spacing(4),
+      height: theme.spacing(4),
+    },
+    content: {
+      flexGrow: 1,
+      display: "flex",
+      flexDirection: "column",
+      marginLeft: theme.spacing(1),
+    },
+    meta: {
+      display: "flex",
+      alignItems: "center",
+      flexGrow: 1,
+      marginBottom: 4,
+    },
+    embedLink: {
+      border: theme.palette.secondary.light,
+      marginBottom: theme.spacing(2),
+      "&:hover": {
+        backgroundColor: theme.palette.secondary.main,
+      },
+    },
+    nameText: {
+      flex: "1",
+      width: 0,
+      fontWeight: theme.typography.fontWeightBold,
+    },
+    username: {
+      marginLeft: 4,
+      color: theme.palette.text.secondary,
+      fontWeight: theme.typography.fontWeightRegular,
+    },
+    postDate: {
+      position: "relative",
+      paddingLeft: theme.spacing(2),
+      fontWeight: theme.typography.fontWeightRegular,
+      "&:before": {
+        content: "'.'",
+        position: "absolute",
+        bottom: 0,
+        left: 6,
+        fontWeight: "bolder",
+      },
+    },
+    actions: {
+      display: "flex",
+      justifyContent: "space-between",
+    },
+  })
+);
+export default function PostCard({ post }: { post: Post }) {
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+
+  const classes = useStyles();
+  const { pathname } = useLocation();
+
+  const handleMenuClose = () => setAnchorEl(null);
+
+  const handleDropdownClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  return (
+    <Fragment>
+      <Paper elevation={0} className={classes.paper}>
+        <Box className={classes.box}>
+          <Avatar
+            aria-label="recipe"
+            src={post.author.profile.avatar}
+            alt={post.author.profile.name}
+          />
+          <div className={classes.content}>
+            <div className={classes.meta}>
+              <div className={classes.nameText}>
+                <Typography
+                  color="textPrimary"
+                  variant="subtitle2"
+                  component="h6"
+                  noWrap
+                >
+                  {post.author.profile.name}
+                  <span
+                    className={classes.username}
+                  >{`@${post.author.username}`}</span>
+                  <span className={classes.postDate}>
+                    {moment(post.created_on).format("MMM YY")}
+                  </span>
+                </Typography>
+              </div>
+              <IconButton
+                size="small"
+                aria-label="dropdown"
+                onClick={handleDropdownClick}
+              >
+                <ExpandMoreIcon />
+              </IconButton>
+            </div>
+            <Typography
+              color="textPrimary"
+              variant="body2"
+              component="p"
+              gutterBottom
+            >
+              {post.body}
+            </Typography>
+          </div>
+        </Box>
+        <PostActions post={post} />
+      </Paper>
+      <CardMenu
+        anchorEl={anchorEl}
+        handleClose={handleMenuClose}
+        author={{ id: post.author.id, username: post.author.username }}
+      />
+    </Fragment>
+  );
+}
